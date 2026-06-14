@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Temporary Mail</title>
+  <link rel="icon" href='data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"%3E%3Crect width="64" height="64" rx="12" fill="%23136f63"/%3E%3Cpath d="M12 20h40v28H12z" fill="%23fff"/%3E%3Cpath d="M12 20l20 16 20-16" fill="none" stroke="%23136f63" stroke-width="5" stroke-linejoin="round"/%3E%3Cpath d="M12 48l15-15m25 15L37 33" fill="none" stroke="%23d8eee8" stroke-width="4"/%3E%3C/svg%3E'>
+  <style>
+    :root { color-scheme: light dark; font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    body { margin: 0; background: #f6f7f9; color: #1b1f24; }
+    main { min-height: 100vh; display: grid; grid-template-columns: 360px 1fr; }
+    aside { background: #ffffff; border-right: 1px solid #d9dde3; padding: 24px; display: flex; flex-direction: column; }
+    section { padding: 24px; }
+    h1 { margin: 0 0 20px; font-size: 24px; }
+    h2 { margin: 0 0 12px; font-size: 18px; }
+    label { display: block; margin: 14px 0 6px; font-weight: 650; font-size: 13px; }
+    input, textarea { width: 100%; box-sizing: border-box; border: 1px solid #c8ced7; border-radius: 6px; padding: 10px 12px; font: inherit; background: #fff; color: #1b1f24; }
+    textarea { min-height: 140px; resize: vertical; }
+    button, .button { border: 0; border-radius: 6px; background: #136f63; color: #fff; padding: 10px 14px; font: inherit; font-weight: 700; cursor: pointer; text-decoration: none; display: inline-block; }
+    button.secondary { background: #3d4754; }
+    button.ghost { background: #eef1f4; color: #26313d; }
+    [hidden] { display: none !important; }
+    .row { display: flex; gap: 8px; align-items: center; }
+    .address { margin: 18px 0; padding: 12px; background: #eef5f3; border: 1px solid #b8d7d0; border-radius: 6px; word-break: break-all; font-weight: 750; }
+    .messages { display: grid; gap: 12px; }
+    .message { background: #fff; border: 1px solid #d9dde3; border-radius: 8px; padding: 16px; }
+    .meta { color: #5b6572; font-size: 13px; margin-bottom: 8px; }
+    .body { white-space: pre-wrap; line-height: 1.45; }
+    .empty { color: #697483; padding: 30px; border: 1px dashed #bbc2cc; border-radius: 8px; text-align: center; }
+    .compose { margin-top: 28px; border-top: 1px solid #d9dde3; padding-top: 20px; }
+    .footerLink { margin-top: auto; padding-top: 24px; font-size: 13px; }
+    .footerLink a { color: #136f63; font-weight: 750; }
+    .hint, .status { color: #5b6572; font-size: 13px; line-height: 1.35; margin-top: 6px; }
+    .ttl { margin: -8px 0 14px; }
+    .status.notice { border-radius: 6px; padding: 10px 12px; margin-top: 12px; opacity: 1; transition: opacity 300ms ease; }
+    .status.fade { opacity: 0; }
+    .status.error { color: #7a1916; background: #fff0ef; border: 1px solid #efbbb7; font-weight: 650; }
+    .status.ok { color: #0f5e54; background: #e7f6f2; border: 1px solid #a8d8ce; font-weight: 650; }
+    button:disabled { opacity: 0.55; cursor: not-allowed; }
+    @media (prefers-color-scheme: dark) {
+      body { background: #121417; color: #e8eaed; }
+      aside, .message { background: #1a1f25; border-color: #333b45; }
+      input, textarea { background: #101316; border-color: #3b4652; color: #e8eaed; }
+      button.ghost { background: #29313a; color: #e8eaed; }
+      .address { background: #132522; border-color: #24574f; }
+      .empty { border-color: #404955; color: #aab3bd; }
+      .status.error { color: #ffd7d4; background: #351715; border-color: #70302b; }
+      .status.ok { color: #c9f5ec; background: #102723; border-color: #255c51; }
+    }
+    @media (max-width: 780px) { main { grid-template-columns: 1fr; } aside { border-right: 0; border-bottom: 1px solid #d9dde3; } }
+  </style>
+</head>
+<body>
+<main>
+  <aside>
+    <h1>Temporary Mail</h1>
+    <form id="inboxForm">
+      <label for="local">Address</label>
+      <div class="row">
+        <input id="local" name="local" autocomplete="off" placeholder="anything">
+        <span>@{{.Domain}}</span>
+      </div>
+      <div class="hint">Use <strong>all</strong> to catch every address for this domain while the inbox is open.</div>
+      <p><button type="submit">Open inbox</button></p>
+    </form>
+    <div id="address" class="address" hidden></div>
+    <div id="ttlWarning" class="hint ttl" hidden>This inbox is deleted either on close or {{.InboxTTL}} after the last refresh.</div>
+    <div id="inboxActions" class="row" hidden>
+      <button id="closeInbox" class="secondary">Close inbox</button>
+    </div>
+
+    <form id="sendForm" class="compose" hidden enctype="multipart/form-data">
+      <h2>Send Mail</h2>
+      <div id="fromGroup" hidden>
+        <label for="from">From</label>
+        <input id="from" name="from" type="email">
+      </div>
+      <label for="to">To</label>
+      <input id="to" name="to" type="email" required>
+      <label for="subject">Subject</label>
+      <input id="subject" name="subject">
+      <label for="body">Body</label>
+      <textarea id="body" name="body"></textarea>
+      <label for="attachments">Attachments</label>
+      <input id="attachments" name="attachments" type="file" multiple>
+      <div class="hint">Multiple files allowed. Total attachment limit: 24 MiB.</div>
+      <div id="attachmentStatus" class="status"></div>
+      <div id="sendStatus" class="status notice" hidden></div>
+      <p><button id="sendButton" type="submit">Send</button></p>
+    </form>
+    <div class="footerLink"><a href="{{.BasePath}}/stats">Stats</a></div>
+  </aside>
+  <section>
+    <h2>Inbox</h2>
+    <div id="lastRefresh" class="hint" hidden></div>
+    <div id="messages" class="messages"><div class="empty">Open an address to start receiving mail.</div></div>
+  </section>
+</main>
+<script>
+const domain = "{{.Domain}}";
+const basePath = "{{.BasePath}}";
+const maxAttachmentBytes = 24 * 1024 * 1024;
+let current = "";
+let timer = 0;
+let sendStatusTimer = 0;
+
+const enc = value => btoa(value).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
+const api = path => `${basePath}${path}`;
+
+function resetInactiveUI() {
+  document.getElementById("address").hidden = true;
+  document.getElementById("ttlWarning").hidden = true;
+  document.getElementById("inboxActions").hidden = true;
+  document.getElementById("inboxForm").hidden = false;
+  document.getElementById("sendForm").hidden = true;
+  document.getElementById("lastRefresh").hidden = true;
+}
+
+resetInactiveUI();
+
+async function openInbox(local) {
+  await closeInbox(false);
+  const res = await fetch(api("/api/inbox"), { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({local}) });
+  if (!res.ok) throw new Error(await res.text());
+  const data = await res.json();
+  current = data.address;
+  document.getElementById("address").hidden = false;
+  document.getElementById("address").textContent = current;
+  document.getElementById("ttlWarning").hidden = false;
+  document.getElementById("inboxActions").hidden = false;
+  document.getElementById("inboxForm").hidden = true;
+  document.getElementById("sendForm").hidden = false;
+  document.getElementById("from").value = current;
+  document.getElementById("fromGroup").hidden = !current.startsWith("all@");
+  document.getElementById("lastRefresh").hidden = false;
+  render([]);
+  await poll();
+  timer = setInterval(poll, 3000);
+}
+
+async function closeInbox(clear = true) {
+  if (timer) clearInterval(timer);
+  timer = 0;
+  if (current) {
+    navigator.sendBeacon(api(`/api/inbox/${enc(current)}`));
+    await fetch(api(`/api/inbox/${enc(current)}`), {method: "DELETE"}).catch(() => {});
+  }
+  current = "";
+  if (clear) {
+    document.getElementById("address").hidden = true;
+    document.getElementById("ttlWarning").hidden = true;
+    document.getElementById("inboxActions").hidden = true;
+    document.getElementById("inboxForm").hidden = false;
+    document.getElementById("sendForm").hidden = true;
+    document.getElementById("from").value = "";
+    document.getElementById("fromGroup").hidden = true;
+    document.getElementById("lastRefresh").hidden = true;
+    document.getElementById("lastRefresh").textContent = "";
+    render(null);
+  }
+}
+
+async function poll() {
+  if (!current) return;
+  const res = await fetch(api(`/api/inbox?address=${encodeURIComponent(current)}`));
+  if (res.status === 404) {
+    await closeInbox();
+    return;
+  }
+  if (!res.ok) return;
+  const data = await res.json();
+  document.getElementById("lastRefresh").textContent = `Last refresh ${new Date().toLocaleTimeString()}`;
+  render(data.messages || []);
+}
+
+function render(messages) {
+  const root = document.getElementById("messages");
+  if (!messages) {
+    root.innerHTML = `<div class="empty">Open an address to start receiving mail.</div>`;
+    return;
+  }
+  if (messages.length === 0) {
+    root.innerHTML = `<div class="empty">No mail yet.</div>`;
+    return;
+  }
+  root.innerHTML = messages.map(m => `
+    <article class="message">
+      <h2>${escapeHTML(m.subject || "(no subject)")}</h2>
+      <div class="meta">From ${escapeHTML(m.from || "")} · ${new Date(m.date).toLocaleString()}</div>
+      ${(m.to || []).length ? `<div class="meta">Addressed to ${escapeHTML((m.to || []).join(", "))}</div>` : ""}
+      ${m.deliveredTo ? `<div class="meta">Delivered to ${escapeHTML(m.deliveredTo)}</div>` : ""}
+      <div class="body">${escapeHTML(m.text || (m.html ? "[HTML message]" : ""))}</div>
+      <p>${(m.attachments || []).map(a => `${escapeHTML(a.name || "attachment")} (${a.size} bytes)`).join("<br>")}</p>
+      <a class="button" href="${api(`/api/inbox/${enc(current)}/message/${m.id}`)}">Download .eml</a>
+    </article>
+  `).join("");
+}
+
+function escapeHTML(s) {
+  return String(s).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;', "'":'&#39;'}[ch]));
+}
+
+function formatBytes(bytes) {
+  if (bytes < 1024) return `${bytes} B`;
+  const units = ["KiB", "MiB", "GiB"];
+  let value = bytes;
+  for (const unit of units) {
+    value = value / 1024;
+    if (value < 1024) return `${value.toFixed(1)} ${unit}`;
+  }
+  return `${value.toFixed(1)} TiB`;
+}
+
+function selectedAttachmentBytes() {
+  return [...document.getElementById("attachments").files].reduce((sum, file) => sum + file.size, 0);
+}
+
+function updateAttachmentStatus() {
+  const files = [...document.getElementById("attachments").files];
+  const status = document.getElementById("attachmentStatus");
+  const total = selectedAttachmentBytes();
+  status.className = "status";
+  if (!files.length) {
+    status.textContent = "";
+    return;
+  }
+  status.textContent = `${files.length} file${files.length === 1 ? "" : "s"} selected, ${formatBytes(total)} total.`;
+  if (total > maxAttachmentBytes) {
+    status.className = "status error";
+    status.textContent += ` Remove ${formatBytes(total - maxAttachmentBytes)} before sending.`;
+  }
+}
+
+async function responseError(res) {
+  const type = res.headers.get("content-type") || "";
+  if (type.includes("application/json")) {
+    const data = await res.json().catch(() => ({}));
+    return data.error || data.message || res.statusText;
+  }
+  return (await res.text()).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim() || res.statusText;
+}
+
+document.getElementById("inboxForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const local = String(new FormData(e.currentTarget).get("local") || "").trim();
+  if (!local) {
+    alert("Enter an address name first.");
+    return;
+  }
+  try { await openInbox(local); }
+  catch (err) { alert(err.message); }
+});
+document.getElementById("closeInbox").addEventListener("click", () => closeInbox());
+document.getElementById("attachments").addEventListener("change", updateAttachmentStatus);
+document.getElementById("sendForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const form = e.currentTarget;
+  const sendButton = document.getElementById("sendButton");
+  const sendStatus = document.getElementById("sendStatus");
+  if (sendButton.disabled) return;
+  clearTimeout(sendStatusTimer);
+  sendStatus.className = "status notice";
+  sendStatus.textContent = "";
+  sendStatus.hidden = true;
+  if (selectedAttachmentBytes() > maxAttachmentBytes) {
+    updateAttachmentStatus();
+    sendStatus.className = "status notice error";
+    sendStatus.textContent = "Attachments are over the 24 MiB total limit.";
+    sendStatus.hidden = false;
+    return;
+  }
+  const fd = new FormData(form);
+  fd.set("from", current.startsWith("all@") ? document.getElementById("from").value.trim() : current);
+  sendButton.disabled = true;
+  const res = await fetch(api("/api/send"), {method: "POST", body: fd});
+  if (!res.ok) {
+    sendStatus.className = "status notice error";
+    sendStatus.textContent = await responseError(res);
+    sendStatus.hidden = false;
+    sendButton.disabled = false;
+  } else {
+    form.reset();
+    document.getElementById("from").value = current;
+    updateAttachmentStatus();
+    sendStatus.className = "status notice ok";
+    sendStatus.textContent = "Message sent successfully.";
+    sendStatus.hidden = false;
+    sendStatusTimer = setTimeout(() => {
+      sendStatus.classList.add("fade");
+      setTimeout(() => {
+        sendStatus.hidden = true;
+        sendStatus.className = "status notice";
+        sendStatus.textContent = "";
+        sendButton.disabled = false;
+      }, 300);
+    }, 5000);
+  }
+});
+window.addEventListener("beforeunload", () => {
+  if (current) navigator.sendBeacon(api(`/api/inbox/${enc(current)}`));
+});
+</script>
+</body>
+</html>

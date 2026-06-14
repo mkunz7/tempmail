@@ -1,0 +1,20 @@
+[Unit]
+Description=Temporary Mail Web UI
+After=network-online.target maddy.service
+Wants=network-online.target
+Requires=maddy.service
+
+[Service]
+Type=simple
+User=maddy
+Group=maddy
+WorkingDirectory=/var/lib/maddy
+EnvironmentFile=/etc/tempmail/tempmail.env
+ExecStart=/var/www/tempmail/tempmail
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
